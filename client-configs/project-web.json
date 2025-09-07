@@ -1,0 +1,76 @@
+{
+  "clientId": "project-web",
+  "name": "Project Web Application",
+  "description": "Single Page Application (SPA) client configuration",
+  "enabled": true,
+  "clientAuthenticatorType": "client-secret",
+  "publicClient": true,
+  "standardFlowEnabled": true,
+  "implicitFlowEnabled": false,
+  "directAccessGrantsEnabled": false,
+  "serviceAccountsEnabled": false,
+  "authorizationServicesEnabled": false,
+  "redirectUris": [
+    "https://localhost:3000/*",
+    "http://localhost:3000/*",
+    "https://yourdomain.com/*"
+  ],
+  "webOrigins": [
+    "https://localhost:3000",
+    "http://localhost:3000",
+    "https://yourdomain.com"
+  ],
+  "attributes": {
+    "pkce.code.challenge.method": "S256",
+    "post.logout.redirect.uris": "https://localhost:3000/logout,http://localhost:3000/logout"
+  },
+  "protocolMappers": [
+    {
+      "name": "realm roles",
+      "protocol": "openid-connect",
+      "protocolMapper": "oidc-usermodel-realm-role-mapper",
+      "consentRequired": false,
+      "config": {
+        "user.attribute": "realm_roles",
+        "access.token.claim": "true",
+        "claim.name": "realm_access.roles",
+        "id.token.claim": "true",
+        "multivalued": "true"
+      }
+    },
+    {
+      "name": "email",
+      "protocol": "openid-connect",
+      "protocolMapper": "oidc-usermodel-property-mapper",
+      "consentRequired": false,
+      "config": {
+        "user.attribute": "email",
+        "access.token.claim": "true",
+        "claim.name": "email",
+        "id.token.claim": "true"
+      }
+    },
+    {
+      "name": "full name",
+      "protocol": "openid-connect",
+      "protocolMapper": "oidc-full-name-mapper",
+      "consentRequired": false,
+      "config": {
+        "access.token.claim": "true",
+        "claim.name": "name",
+        "id.token.claim": "true"
+      }
+    }
+  ],
+  "usage": {
+    "description": "This client is designed for Single Page Applications (SPAs) using Authorization Code flow with PKCE",
+    "flow": "Authorization Code + PKCE",
+    "security": "Public client - no client secret required",
+    "redirectUri": "Configure redirect URIs for your application domains",
+    "example": {
+      "authUrl": "http://localhost:8080/realms/project-realm/protocol/openid-connect/auth",
+      "tokenUrl": "http://localhost:8080/realms/project-realm/protocol/openid-connect/token",
+      "logoutUrl": "http://localhost:8080/realms/project-realm/protocol/openid-connect/logout"
+    }
+  }
+}

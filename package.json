@@ -1,0 +1,18 @@
+{
+  "name": "keycloak-auth-template",
+  "version": "1.0.0",
+  "description": "Independent Keycloak Auth Template - Copy and Run",
+  "main": "validation-server.js",
+  "scripts": {
+    "start": "node validation-server.js",
+    "validate": "node scripts/validate-template.js",
+    "test": "node scripts/test-structure.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5"
+  },
+  "keywords": ["keycloak", "authentication", "template", "docker"],
+  "author": "Keycloak Template",
+  "license": "MIT"
+}

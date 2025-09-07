@@ -1,0 +1,58 @@
+{
+  "clientId": "project-backend",
+  "name": "Project Backend Service",
+  "description": "Backend service for server-to-server communication",
+  "enabled": true,
+  "clientAuthenticatorType": "client-secret",
+  "publicClient": false,
+  "standardFlowEnabled": false,
+  "implicitFlowEnabled": false,
+  "directAccessGrantsEnabled": false,
+  "serviceAccountsEnabled": true,
+  "authorizationServicesEnabled": false,
+  "secret": "changeme-backend-client-secret",
+  "attributes": {
+    "access.token.lifespan": "600",
+    "client_credentials.use_refresh_token": "false"
+  },
+  "serviceAccountsSettings": {
+    "realmRoles": ["operator"],
+    "description": "Service account for backend operations"
+  },
+  "protocolMappers": [
+    {
+      "name": "client roles",
+      "protocol": "openid-connect",
+      "protocolMapper": "oidc-usermodel-client-role-mapper",
+      "consentRequired": false,
+      "config": {
+        "user.attribute": "client_roles",
+        "access.token.claim": "true",
+        "claim.name": "resource_access.${client_id}.roles",
+        "multivalued": "true"
+      }
+    },
+    {
+      "name": "audience",
+      "protocol": "openid-connect",
+      "protocolMapper": "oidc-audience-mapper",
+      "consentRequired": false,
+      "config": {
+        "included.client.audience": "project-backend",
+        "access.token.claim": "true"
+      }
+    }
+  ],
+  "usage": {
+    "description": "This client is designed for backend services using Client Credentials flow",
+    "flow": "Client Credentials",
+    "security": "Confidential client - requires client secret",
+    "authentication": "Uses client_id and client_secret for service-to-service communication",
+    "example": {
+      "tokenUrl": "http://localhost:8080/realms/project-realm/protocol/openid-connect/token",
+      "grantType": "client_credentials",
+      "scope": "openid profile"
+    },
+    "curlExample": "curl -X POST 'http://localhost:8080/realms/project-realm/protocol/openid-connect/token' -H 'Content-Type: application/x-www-form-urlencoded' -d 'grant_type=client_credentials&client_id=project-backend&client_secret=YOUR_CLIENT_SECRET'"
+  }
+}
