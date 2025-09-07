@@ -1,0 +1,126 @@
+GOAL:
+Create an **Independent Keycloak Auth Template** (one Keycloak instance per project) that is **COPY-AND-RUN / PLUG-AND-PLAY**. The template must be fully functional, reusable for any project, with single-tenant default and documented options for multi-tenant deployments. All documentation in English. Clients required: project-web (SPA), project-backend (confidential), project-mobile (mobile app).
+
+IMPORTANT NOTE:
+- If the environment (Replit) can run Docker: the agent should run the full flow (docker-compose up, import realm, seed admin, run basic verification tests) and include outputs in `verification-report.md`.
+- If Docker is not runnable: still generate all files, scripts, and full documentation. Provide precise commands to run locally or on a VPS.
+
+TECHNICAL REQUIREMENTS (must be honored)
+- Default realm: `project-realm`
+- Token lifetimes:
+  - Access Token TTL: **10 minutes**
+  - Refresh Token TTL: **7 days**
+  - SSO Session Idle: **30 minutes**
+- Default clients:
+  - `project-web` — public client (SPA), Authorization Code + PKCE, redirect `https://localhost:3000/*`
+  - `project-backend` — confidential client, serviceAccountsEnabled (client_credentials)
+  - `project-mobile` — public (mobile), Authorization Code + PKCE, example redirect `com.example.app:/oauth2redirect`
+- Realm roles: `owner`, `operator`, `admin`
+- Password policy: min 8 chars, include number, uppercase & lowercase, block common passwords
+- MFA: TOTP (authenticator app) — **REQUIRED for admin**, optional for owner
+- Email: MailHog for dev; SMTP configurable via `.env`
+- Secrets must be placeholders in the repo (`.env.example`)
+
+REQUIRED REPOSITORY OUTPUT (agent must create)
+- docker-compose.yml
+- helm/ (minimal helm chart + example values.yaml)
+- .env.example
+- realm/realm-singletenant.json
+- realm/realm-multitenant.json or scripts/notes for multi-tenant
+- scripts/
+  - import-realm.sh (idempotent, readiness checks)
+  - export-realm.sh
+  - seed-admin.sh
+  - backup-db.sh
+  - restore-db.sh
+- client-configs/
+  - project-web.json
+  - project-backend.json
+  - project-mobile.json
+- middleware-examples/
+  - node/express-oidc-mw.js
+  - python/fastapi_oidc_mw.py
+- curl_examples.md (detailed)
+- postman_collection.json (optional)
+- kcadm-commands.txt (optional)
+- README.md (full install, usage, integration, single vs multi-tenant, PKCE steps, security best practices)
+- README-quickstart.txt (3-step quickstart)
+- verification-report.md (tests performed / instructions / outputs)
+- .gitignore, LICENSE
+
+DETAILED REQUIREMENTS & NOTES
+1) docker-compose.yml must include Keycloak (quay.io/keycloak/keycloak:latest or recommended stable), PostgreSQL, MailHog. Expose ports 8080, 5432, 8025. Use `start-dev` for dev environment; include comments how to switch to production mode.
+
+2) import-realm.sh must be idempotent:
+- Check if realm exists (`GET /admin/realms/{realm}`)
+- If not exists -> POST the realm JSON
+- If exists -> PUT or PATCH the realm (or exit with message unless forced)
+- Obtain admin access token from master realm OIDC endpoint
+- Provide robust logging and exit codes
+
+3) seed-admin.sh should:
+- Create admin user `admin@project.local` if not exists
+- Set password, set emailVerified true
+- Assign realm role `admin`
+- Optionally print credentials or tell where to set admin password (do not store secrets in repo)
+
+4) realm JSON must be importable and include:
+- realm name `project-realm`
+- realm roles: owner, operator, admin
+- client definitions: project-web (public, pkce), project-backend (confidential, service account), project-mobile (public, pkce)
+- remember: if some settings (MFA, password policy, TTLs) need separate REST calls on certain Keycloak versions, import script should perform them.
+
+5) Multi-tenant approach:
+- Provide TWO documented options:
+  - Multi-realm per tenant: provide `scripts/create-tenant-realm.sh` to duplicate `realm-singletenant.json` with tenant suffix.
+  - Single-realm multi-tenant claim pattern: show how to add tenant claim to tokens (client mapper), and pros/cons.
+- Provide sample commands and a small CSV-driven example for creating tenant realms.
+
+6) Token TTLs & Refresh rotation:
+- Ensure import/seed scripts set Access token 10 min, Refresh token 7 days and **enable refresh token rotation** for clients where needed.
+- Provide curl-based tests to validate rotation behavior.
+
+7) PKCE examples:
+- Provide example commands to generate code_verifier & code_challenge (openssl or node)
+- Include sample Authorization URL and token exchange (curl) demonstrating Authorization Code + PKCE flow.
+
+8) Middleware examples:
+- Node express middleware should:
+  - fetch `.well-known/openid-configuration`, get jwks_uri
+  - fetch jwks, cache locally (TTL)
+  - verify JWT signature & expiry (using jwks-rsa + jsonwebtoken sample)
+  - check audience / azp / roles
+  - attach user to request
+- Python FastAPI dependency should be equivalent (python-jose example)
+
+9) Health & monitoring:
+- Provide keycloak-exporter notes & example Prometheus config
+- Provide readiness/liveness examples in helm values
+
+10) Backup & restore:
+- backup-db.sh must use pg_dump with timestamp
+- export-realm.sh must fetch realm via Admin REST and save JSON
+- restore-db.sh sample steps
+
+11) TLS & production recommendations:
+- Use TLS (Let's Encrypt), use managed DB or strong backup strategy, use secrets manager
+- Avoid exposing admin console to public IP without firewall/VPN
+
+ACCEPTANCE CRITERIA (agent must run tests or provide exact test steps)
+1. Keycloak container starts (or provide explicit local run commands)
+2. realm `project-realm` import success
+3. admin user created & can login to admin console
+4. get client_credentials token for `project-backend`
+5. Authorization code + PKCE demo for `project-web` or `project-mobile` (show sample exchange)
+6. refresh token rotation test documented and demonstrated (or instructions with expected outputs)
+7. introspection & revoke demonstrated
+8. MFA required for admin tested (fail without TOTP; pass after TOTP setup)
+9. multi-realm creation sample executed or documented
+10. All deliverables present and `tree` displayed
+
+FINAL INSTRUCTIONS:
+- Agent must print a final summary and a 3-step quickstart in repo root.
+- If Docker cannot be executed in Replit, agent must clearly state this and provide the exact commands to run locally with expected outputs.
+- All documentation must be clear and copy-paste friendly.
+
+END.
