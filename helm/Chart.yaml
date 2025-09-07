@@ -1,0 +1,20 @@
+apiVersion: v2
+name: keycloak-auth-template
+description: Independent Keycloak authentication template for any project
+type: application
+version: 1.0.0
+appVersion: "23.0.0"
+home: https://github.com/your-org/keycloak-auth-template
+sources:
+  - https://github.com/your-org/keycloak-auth-template
+maintainers:
+  - name: Your Team
+    email: team@yourcompany.com
+keywords:
+  - keycloak
+  - authentication
+  - oauth2
+  - oidc
+  - identity
+annotations:
+  category: Identity and Access Management

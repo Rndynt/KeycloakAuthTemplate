@@ -1,0 +1,219 @@
+{
+  "id": "{{TENANT_REALM_NAME}}",
+  "realm": "{{TENANT_REALM_NAME}}",
+  "displayName": "{{TENANT_DISPLAY_NAME}}",
+  "enabled": true,
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "editUsernameAllowed": false,
+  "bruteForceProtected": true,
+  "passwordPolicy": "length(8) and digits(1) and upperCase(1) and lowerCase(1) and notUsername(undefined) and hashIterations(27500)",
+  "accessTokenLifespan": 600,
+  "accessTokenLifespanForImplicitFlow": 600,
+  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionMaxLifespan": 36000,
+  "offlineSessionIdleTimeout": 2592000,
+  "accessCodeLifespan": 60,
+  "accessCodeLifespanUserAction": 300,
+  "accessCodeLifespanLogin": 1800,
+  "actionTokenGeneratedByAdminLifespan": 43200,
+  "actionTokenGeneratedByUserLifespan": 300,
+  "requiredCredentials": ["password"],
+  "otpPolicyType": "totp",
+  "otpPolicyAlgorithm": "HmacSHA1",
+  "otpPolicyInitialCounter": 0,
+  "otpPolicyDigits": 6,
+  "otpPolicyLookAheadWindow": 1,
+  "otpPolicyPeriod": 30,
+  "attributes": {
+    "tenant_id": "{{TENANT_ID}}",
+    "tenant_name": "{{TENANT_NAME}}"
+  },
+  "roles": {
+    "realm": [
+      {
+        "name": "owner",
+        "description": "Tenant Owner - Full access to tenant resources",
+        "composite": false,
+        "clientRole": false,
+        "containerId": "{{TENANT_REALM_NAME}}"
+      },
+      {
+        "name": "operator",
+        "description": "Tenant Operator - Operational access to tenant resources",
+        "composite": false,
+        "clientRole": false,
+        "containerId": "{{TENANT_REALM_NAME}}"
+      },
+      {
+        "name": "admin",
+        "description": "Tenant Administrator - Administrative access with MFA required",
+        "composite": false,
+        "clientRole": false,
+        "containerId": "{{TENANT_REALM_NAME}}"
+      },
+      {
+        "name": "user",
+        "description": "Tenant User - Basic user access",
+        "composite": false,
+        "clientRole": false,
+        "containerId": "{{TENANT_REALM_NAME}}"
+      }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "{{TENANT_PREFIX}}-web",
+      "name": "{{TENANT_DISPLAY_NAME}} Web Application",
+      "description": "Single Page Application (SPA) client for {{TENANT_DISPLAY_NAME}}",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "authorizationServicesEnabled": false,
+      "redirectUris": [
+        "https://{{TENANT_DOMAIN}}/*",
+        "https://{{TENANT_ID}}.yourapp.com/*",
+        "http://localhost:3000/*"
+      ],
+      "webOrigins": [
+        "https://{{TENANT_DOMAIN}}",
+        "https://{{TENANT_ID}}.yourapp.com",
+        "http://localhost:3000"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      },
+      "protocolMappers": [
+        {
+          "name": "realm roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "foo",
+            "access.token.claim": "true",
+            "claim.name": "realm_access.roles",
+            "id.token.claim": "true",
+            "multivalued": "true"
+          }
+        },
+        {
+          "name": "tenant id",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-hardcoded-claim-mapper",
+          "consentRequired": false,
+          "config": {
+            "claim.value": "{{TENANT_ID}}",
+            "access.token.claim": "true",
+            "claim.name": "tenant_id",
+            "id.token.claim": "true"
+          }
+        },
+        {
+          "name": "tenant name",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-hardcoded-claim-mapper",
+          "consentRequired": false,
+          "config": {
+            "claim.value": "{{TENANT_NAME}}",
+            "access.token.claim": "true",
+            "claim.name": "tenant_name",
+            "id.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "{{TENANT_PREFIX}}-backend",
+      "name": "{{TENANT_DISPLAY_NAME}} Backend Service",
+      "description": "Backend service for {{TENANT_DISPLAY_NAME}} server-to-server communication",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "publicClient": false,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "authorizationServicesEnabled": false,
+      "secret": "{{BACKEND_CLIENT_SECRET}}",
+      "attributes": {
+        "access.token.lifespan": "600"
+      },
+      "protocolMappers": [
+        {
+          "name": "tenant id",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-hardcoded-claim-mapper",
+          "consentRequired": false,
+          "config": {
+            "claim.value": "{{TENANT_ID}}",
+            "access.token.claim": "true",
+            "claim.name": "tenant_id",
+            "id.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "{{TENANT_PREFIX}}-mobile",
+      "name": "{{TENANT_DISPLAY_NAME}} Mobile Application",
+      "description": "Mobile application client for {{TENANT_DISPLAY_NAME}}",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "authorizationServicesEnabled": false,
+      "redirectUris": [
+        "com.{{TENANT_ID}}.app:/oauth2redirect/*",
+        "{{TENANT_MOBILE_SCHEME}}:/oauth2redirect/*"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      },
+      "protocolMappers": [
+        {
+          "name": "tenant id",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-hardcoded-claim-mapper",
+          "consentRequired": false,
+          "config": {
+            "claim.value": "{{TENANT_ID}}",
+            "access.token.claim": "true",
+            "claim.name": "tenant_id",
+            "id.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "smtpServer": {
+    "host": "{{SMTP_HOST}}",
+    "port": "{{SMTP_PORT}}",
+    "from": "noreply@{{TENANT_DOMAIN}}",
+    "fromDisplayName": "{{TENANT_DISPLAY_NAME}} Team",
+    "ssl": "{{SMTP_SSL}}",
+    "starttls": "{{SMTP_STARTTLS}}",
+    "auth": "{{SMTP_AUTH}}",
+    "user": "{{SMTP_USER}}",
+    "password": "{{SMTP_PASSWORD}}"
+  },
+  "eventsEnabled": true,
+  "eventsListeners": ["jboss-logging"],
+  "adminEventsEnabled": true,
+  "adminEventsDetailsEnabled": true,
+  "browserFlow": "browser",
+  "registrationFlow": "registration",
+  "directGrantFlow": "direct grant",
+  "resetCredentialsFlow": "reset credentials",
+  "clientAuthenticationFlow": "clients"
+}

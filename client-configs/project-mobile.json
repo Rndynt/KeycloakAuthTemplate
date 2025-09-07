@@ -1,0 +1,82 @@
+{
+  "clientId": "project-mobile",
+  "name": "Project Mobile Application",
+  "description": "Mobile application client configuration",
+  "enabled": true,
+  "clientAuthenticatorType": "client-secret",
+  "publicClient": true,
+  "standardFlowEnabled": true,
+  "implicitFlowEnabled": false,
+  "directAccessGrantsEnabled": false,
+  "serviceAccountsEnabled": false,
+  "authorizationServicesEnabled": false,
+  "redirectUris": [
+    "com.example.app:/oauth2redirect/*",
+    "com.yourcompany.yourapp:/oauth2redirect/*",
+    "http://localhost:3000/auth/callback"
+  ],
+  "attributes": {
+    "pkce.code.challenge.method": "S256",
+    "post.logout.redirect.uris": "com.example.app:/logout,com.yourcompany.yourapp:/logout"
+  },
+  "protocolMappers": [
+    {
+      "name": "realm roles",
+      "protocol": "openid-connect",
+      "protocolMapper": "oidc-usermodel-realm-role-mapper",
+      "consentRequired": false,
+      "config": {
+        "user.attribute": "realm_roles",
+        "access.token.claim": "true",
+        "claim.name": "realm_access.roles",
+        "id.token.claim": "true",
+        "multivalued": "true"
+      }
+    },
+    {
+      "name": "email",
+      "protocol": "openid-connect",
+      "protocolMapper": "oidc-usermodel-property-mapper",
+      "consentRequired": false,
+      "config": {
+        "user.attribute": "email",
+        "access.token.claim": "true",
+        "claim.name": "email",
+        "id.token.claim": "true"
+      }
+    },
+    {
+      "name": "device info",
+      "protocol": "openid-connect",
+      "protocolMapper": "oidc-hardcoded-claim-mapper",
+      "consentRequired": false,
+      "config": {
+        "claim.value": "mobile",
+        "access.token.claim": "true",
+        "claim.name": "device_type",
+        "id.token.claim": "true"
+      }
+    }
+  ],
+  "usage": {
+    "description": "This client is designed for mobile applications using Authorization Code flow with PKCE",
+    "flow": "Authorization Code + PKCE",
+    "security": "Public client - no client secret required",
+    "redirectUri": "Configure custom URL schemes for your mobile app",
+    "example": {
+      "authUrl": "http://localhost:8080/realms/project-realm/protocol/openid-connect/auth",
+      "tokenUrl": "http://localhost:8080/realms/project-realm/protocol/openid-connect/token",
+      "logoutUrl": "http://localhost:8080/realms/project-realm/protocol/openid-connect/logout"
+    },
+    "mobileIntegration": {
+      "ios": {
+        "urlScheme": "com.yourcompany.yourapp",
+        "infoPlist": "Add URL scheme to Info.plist under CFBundleURLTypes"
+      },
+      "android": {
+        "intentFilter": "Add intent-filter to AndroidManifest.xml with custom scheme",
+        "scheme": "com.yourcompany.yourapp"
+      }
+    }
+  }
+}

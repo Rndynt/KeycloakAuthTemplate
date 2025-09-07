@@ -1,0 +1,241 @@
+# Default values for keycloak-auth-template
+# This is a YAML-formatted file.
+
+replicaCount: 1
+
+image:
+  repository: quay.io/keycloak/keycloak
+  pullPolicy: IfNotPresent
+  tag: "23.0.0"
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+
+podSecurityContext:
+  fsGroup: 1000
+
+securityContext:
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: false
+  runAsNonRoot: true
+  runAsUser: 1000
+
+service:
+  type: ClusterIP
+  port: 8080
+  targetPort: 8080
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+    # nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  hosts:
+    - host: keycloak.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+    # - secretName: keycloak-tls
+    #   hosts:
+    #     - keycloak.local
+
+resources:
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+  requests:
+    cpu: 500m
+    memory: 512Mi
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+# Keycloak configuration
+keycloak:
+  # Environment mode: dev or prod
+  mode: dev
+  
+  # Database configuration
+  database:
+    vendor: postgres
+    hostname: postgresql
+    port: 5432
+    database: keycloak
+    username: keycloak
+    existingSecret: keycloak-db-secret
+    existingSecretKey: password
+  
+  # Admin user
+  admin:
+    username: admin
+    existingSecret: keycloak-admin-secret
+    existingSecretKey: password
+  
+  # Extra environment variables
+  extraEnv:
+    - name: KC_HOSTNAME_STRICT
+      value: "false"
+    - name: KC_HOSTNAME_STRICT_BACKCHANNEL
+      value: "false"
+    - name: KC_HTTP_ENABLED
+      value: "true"
+    - name: KC_HEALTH_ENABLED
+      value: "true"
+    - name: KC_METRICS_ENABLED
+      value: "true"
+    - name: KC_PROXY
+      value: "edge"
+  
+  # Realm import
+  realmImport:
+    enabled: true
+    realm: project-realm
+    configMapName: keycloak-realm-config
+
+# PostgreSQL dependency
+postgresql:
+  enabled: true
+  auth:
+    postgresPassword: postgres
+    username: keycloak
+    password: keycloak
+    database: keycloak
+  primary:
+    persistence:
+      enabled: true
+      size: 8Gi
+    resources:
+      requests:
+        memory: 256Mi
+        cpu: 250m
+      limits:
+        memory: 512Mi
+        cpu: 500m
+
+# Health checks
+livenessProbe:
+  httpGet:
+    path: /health/live
+    port: 8080
+  initialDelaySeconds: 180
+  periodSeconds: 30
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /health/ready
+    port: 8080
+  initialDelaySeconds: 60
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+# Monitoring
+monitoring:
+  enabled: false
+  serviceMonitor:
+    enabled: false
+    interval: 30s
+    path: /metrics
+    labels: {}
+
+# MailHog for development
+mailhog:
+  enabled: true
+  image:
+    repository: mailhog/mailhog
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 8025
+    smtpPort: 1025
+
+# Multi-tenant configuration
+multiTenant:
+  enabled: false
+  tenants: []
+    # - name: tenant1
+    #   realm: tenant1-realm
+    #   adminEmail: admin@tenant1.com
+    # - name: tenant2
+    #   realm: tenant2-realm
+    #   adminEmail: admin@tenant2.com
+
+# Backup configuration
+backup:
+  enabled: false
+  schedule: "0 2 * * *"  # Daily at 2 AM
+  retention: 30  # days
+  storage:
+    size: 10Gi
+    className: ""
+
+# Custom realm configuration
+realmConfig:
+  # Token lifetimes
+  accessTokenLifespan: 600  # 10 minutes
+  ssoSessionIdleTimeout: 1800  # 30 minutes
+  ssoSessionMaxLifespan: 36000  # 10 hours
+  refreshTokenMaxReuse: 0  # Enable refresh token rotation
+  
+  # Password policy
+  passwordPolicy: "length(8) and digits(1) and upperCase(1) and lowerCase(1) and notUsername(undefined) and hashIterations(27500)"
+  
+  # Clients
+  clients:
+    web:
+      clientId: project-web
+      publicClient: true
+      redirectUris:
+        - "https://yourapp.com/*"
+        - "http://localhost:3000/*"
+      webOrigins:
+        - "https://yourapp.com"
+        - "http://localhost:3000"
+    
+    backend:
+      clientId: project-backend
+      secret: ""  # Will be generated if empty
+      serviceAccountsEnabled: true
+    
+    mobile:
+      clientId: project-mobile
+      publicClient: true
+      redirectUris:
+        - "com.yourcompany.yourapp:/oauth2redirect/*"
+
+# Development settings
+development:
+  enabled: true
+  seedData:
+    enabled: true
+    adminUser:
+      username: project-admin
+      email: admin@project.local
+      password: ChangeMePlease123!
+  
+  mailhog:
+    enabled: true
