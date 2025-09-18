@@ -15,7 +15,7 @@ app.get('/api/validate', (req, res) => {
     const checks = {
         dockerCompose: fs.existsSync('docker-compose.yml'),
         envExample: fs.existsSync('.env.example'),
-        realmConfig: fs.existsSync('realm/realm-singletenant.json'),
+        realmConfig: fs.existsSync('realm/realm-organizations-complete.json'),
         scriptsDir: fs.existsSync('scripts'),
         clientConfigsDir: fs.existsSync('client-configs'),
         middlewareDir: fs.existsSync('middleware-examples'),
@@ -65,8 +65,8 @@ app.get('/api/structure', (req, res) => {
 // Documentation endpoint
 app.get('/api/docs', (req, res) => {
     const docs = {
-        title: 'Keycloak Auth Template',
-        description: 'Independent Keycloak authentication template for any project',
+        title: 'Keycloak Enterprise Auth Template v2.0',
+        description: 'Enterprise-grade multi-tenant authentication platform with Organizations, IoT, Token Exchange & Authorization Services',
         environment: 'Replit Preview Environment',
         quickStart: [
             '1. Download/fork this template to your local machine',
@@ -117,8 +117,8 @@ app.get('/', (req, res) => {
             </style>
         </head>
         <body>
-            <h1>🔐 Keycloak Auth Template</h1>
-            <p><strong>Replit Preview:</strong> Independent Keycloak authentication template - copy and run locally!</p>
+            <h1>🔐 Keycloak Enterprise Auth Template v2.0</h1>
+            <p><strong>Replit Preview:</strong> Enterprise-grade multi-tenant authentication platform with Organizations, IoT Device Auth, Token Exchange & Authorization Services!</p>
             
             <div style="background-color: #e7f3ff; border: 1px solid #b3d9ff; padding: 15px; margin: 20px 0; border-radius: 5px;">
                 <strong>ℹ️ About This Preview:</strong> This is a demonstration of the Keycloak template structure and documentation. 
