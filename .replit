@@ -1,4 +1,4 @@
-modules = ["nodejs-20"]
+modules = ["bash", "nodejs-20", "python-3.12"]
 [agent]
 expertMode = true
 
@@ -29,3 +29,6 @@ outputType = "webview"
 [[ports]]
 localPort = 5000
 externalPort = 80
+
+[nix]
+channel = "stable-25_05"
