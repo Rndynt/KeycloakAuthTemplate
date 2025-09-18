@@ -26,12 +26,14 @@ app.get('/api/validate', (req, res) => {
     const total = Object.keys(checks).length;
     
     res.json({
+        environment: 'Replit Cloud Environment',
         status: score === total ? 'COMPLETE' : 'IN_PROGRESS',
         score: `${score}/${total}`,
         checks,
         message: score === total ? 
-            'Template is complete and ready for use!' : 
-            'Template is being built...'
+            'Template is complete and ready for local deployment!' : 
+            'Template is being built...',
+        note: 'This template requires Docker to run Keycloak. Download and use locally with Docker for full functionality.'
     });
 });
 
@@ -65,16 +67,25 @@ app.get('/api/docs', (req, res) => {
     const docs = {
         title: 'Keycloak Auth Template',
         description: 'Independent Keycloak authentication template for any project',
+        environment: 'Replit Preview Environment',
         quickStart: [
-            '1. Copy template files to your project',
+            '1. Download/fork this template to your local machine',
             '2. Run: cp .env.example .env && edit credentials',
-            '3. Run: docker-compose up -d'
+            '3. Run: docker-compose up -d',
+            '4. Run: ./scripts/import-realm.sh',
+            '5. Access Keycloak at http://localhost:8080'
         ],
-        dockerStatus: 'Not available in current environment',
+        replitInfo: {
+            purpose: 'This Replit shows the template structure and documentation',
+            limitation: 'Docker is not available in Replit - use locally for full functionality',
+            downloadInstructions: 'Fork this Replit or download files to use with Docker locally'
+        },
         localInstructions: [
             'This template requires Docker to run Keycloak',
-            'Copy all files to a local environment with Docker',
-            'Follow the README instructions for full setup'
+            'Download all files to a local environment with Docker installed',
+            'Follow the README.md instructions for complete setup',
+            'Includes PostgreSQL database, MailHog for email testing',
+            'Production-ready with security best practices'
         ]
     };
     
@@ -107,10 +118,15 @@ app.get('/', (req, res) => {
         </head>
         <body>
             <h1>🔐 Keycloak Auth Template</h1>
-            <p>Independent Keycloak authentication template - copy and run!</p>
+            <p><strong>Replit Preview:</strong> Independent Keycloak authentication template - copy and run locally!</p>
+            
+            <div style="background-color: #e7f3ff; border: 1px solid #b3d9ff; padding: 15px; margin: 20px 0; border-radius: 5px;">
+                <strong>ℹ️ About This Preview:</strong> This is a demonstration of the Keycloak template structure and documentation. 
+                To use the full authentication system, download these files and run locally with Docker.
+            </div>
             
             <div id="status" class="status in-progress">
-                <strong>Status:</strong> Loading...
+                <strong>Template Status:</strong> Loading...
             </div>
             
             <h2>Template Structure</h2>
@@ -122,24 +138,27 @@ app.get('/', (req, res) => {
             <div class="endpoint"><strong>GET /api/docs</strong> - Documentation and quick start</div>
             <div class="endpoint"><strong>GET /health</strong> - Service health check</div>
             
-            <h2>Quick Start (Local with Docker)</h2>
+            <h2>Quick Start (Requires Local Docker)</h2>
             <pre>
-# 1. Copy template files
+# 1. Download template files (fork this Replit or clone)
 git clone [your-repo] keycloak-template
 cd keycloak-template
 
 # 2. Configure environment
 cp .env.example .env
-# Edit .env with your credentials
+# Edit .env with your secure credentials
 
-# 3. Start services
+# 3. Start services (requires Docker)
 docker-compose up -d
 
-# 4. Import realm
+# 4. Import realm configuration
 ./scripts/import-realm.sh
 
-# 5. Seed admin user
+# 5. Create admin user
 ./scripts/seed-admin.sh
+
+# 6. Access Keycloak Admin Console
+open http://localhost:8080
             </pre>
             
             <script>
