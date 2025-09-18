@@ -1,0 +1,5 @@
+[
+  { "name": "event",  "type": "urn:resource:event"  },
+  { "name": "ticket", "type": "urn:resource:ticket" },
+  { "name": "order",  "type": "urn:resource:order"  }
+]

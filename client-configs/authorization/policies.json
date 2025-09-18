@@ -1,0 +1,4 @@
+[
+  { "name": "policy-tenant-admin", "type": "role", "config": { "roles": ["TENANT_ADMIN"] } },
+  { "name": "policy-tenant-member", "type": "role", "config": { "roles": ["TENANT_MEMBER"] } }
+]

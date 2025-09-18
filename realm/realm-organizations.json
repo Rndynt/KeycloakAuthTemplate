@@ -1,0 +1,85 @@
+{
+  "_comment": "Starter skeleton: replace placeholders with a valid Keycloak realm export (KC >= 26) that enables Organizations. Keep realm name stable for docs/tests.",
+  "realm": "event-platform-organizations",
+  "enabled": true,
+  "attributes": {
+    "organizationsEnabled": "true"
+  },
+  "displayName": "Event Platform (Organizations)",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "internationalizationEnabled": true,
+  "supportedLocales": ["en"],
+  "defaultLocale": "en",
+  "clients": [
+    {
+      "clientId": "event-platform-web",
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      },
+      "redirectUris": ["http://localhost:3000/*"],
+      "webOrigins": ["+"]
+    },
+    {
+      "clientId": "event-platform-backend",
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "serviceAccountsEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "standardFlowEnabled": false,
+      "redirectUris": [],
+      "webOrigins": []
+    }
+  ],
+  "clientScopes": [
+    {
+      "name": "organization",
+      "protocol": "openid-connect",
+      "attributes": { "display.on.consent.screen": "true" },
+      "protocolMappers": [
+        {
+          "name": "org-name",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "organization",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "claim.name": "organization",
+            "jsonType.label": "String"
+          }
+        },
+        {
+          "name": "org-id",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "org_id",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "claim.name": "org_id",
+            "jsonType.label": "String"
+          }
+        }
+      ]
+    }
+  ],
+  "defaultDefaultClientScopes": ["organization", "profile", "email"],
+  "users": [],
+  "groups": [],
+  "roles": {
+    "realm": [
+      { "name": "TENANT_ADMIN" },
+      { "name": "TENANT_MEMBER" }
+    ]
+  }
+}

@@ -12,8 +12,8 @@ const axios = require('axios');
 class KeycloakOIDCMiddleware {
     constructor(options = {}) {
         this.keycloakUrl = options.keycloakUrl || process.env.KEYCLOAK_URL || 'http://localhost:8080';
-        this.realm = options.realm || process.env.PROJECT_REALM || 'project-realm';
-        this.clientId = options.clientId || process.env.PROJECT_WEB_CLIENT_ID || 'project-web';
+        this.realm = options.realm || process.env.PROJECT_REALM || 'event-platform-organizations';
+        this.clientId = options.clientId || process.env.PROJECT_WEB_CLIENT_ID || 'event-platform-web';
         this.jwksCache = new Map();
         this.jwksCacheTTL = options.jwksCacheTTL || 300000; // 5 minutes
         this.oidcConfig = null;
@@ -67,7 +67,7 @@ class KeycloakOIDCMiddleware {
             jwt.verify(token, this.getKey, {
                 audience: this.clientId,
                 issuer: this.oidcConfig.issuer,
-                algorithms: ['RS256']
+                algorithms: ['RS256', 'ES256', 'EdDSA']
             }, (err, decoded) => {
                 if (err) {
                     reject(err);
@@ -133,6 +133,9 @@ class KeycloakOIDCMiddleware {
                     name: decoded.name,
                     roles: decoded.realm_access?.roles || [],
                     clientRoles: decoded.resource_access || {},
+                    organization: decoded.organization,
+                    org_id: decoded.org_id,
+                    scopes: decoded.scope ? decoded.scope.split(' ') : [],
                     token: decoded
                 };
                 
@@ -148,15 +151,46 @@ class KeycloakOIDCMiddleware {
     }
     
     /**
-     * Authorization middleware with role checking
+     * Authorization middleware with role checking and organization validation
      */
-    authorize(requiredRoles = []) {
+    authorize(requiredRoles = [], options = {}) {
         return (req, res, next) => {
             if (!req.user) {
                 return res.status(401).json({
                     error: 'unauthorized',
                     message: 'Authentication required'
                 });
+            }
+            
+            // Validate organization claims if required
+            if (options.requireOrganization) {
+                if (!req.user.organization || !req.user.org_id) {
+                    return res.status(403).json({
+                        error: 'forbidden',
+                        message: 'Organization context required'
+                    });
+                }
+                
+                // Check if organization matches URL parameter
+                if (req.params.orgSlug && req.user.organization !== req.params.orgSlug) {
+                    return res.status(403).json({
+                        error: 'forbidden',
+                        message: `Organization mismatch. Token: ${req.user.organization}, Request: ${req.params.orgSlug}`
+                    });
+                }
+            }
+            
+            // Validate required scopes
+            if (options.requiredScopes && options.requiredScopes.length > 0) {
+                const hasScope = options.requiredScopes.some(scope => 
+                    req.user.scopes.includes(scope)
+                );
+                if (!hasScope) {
+                    return res.status(403).json({
+                        error: 'forbidden',
+                        message: `Missing required scopes: ${options.requiredScopes.join(', ')}`
+                    });
+                }
             }
             
             if (!this.hasRole(req.user, requiredRoles)) {

@@ -1,0 +1,580 @@
+````
+TITLE: Upgrade & Harden KeycloakAuthTemplate for Multi-Tenant SaaS, IoT, and Enterprise-grade Ops (EN-only)
+
+ROLE:
+You are a senior Keycloak + DevOps engineer. You will ANALYZE, PATCH, EXTEND, TEST, and DOCUMENT the repository:
+https://github.com/Rndynt/KeycloakAuthTemplate
+
+GOAL:
+Deliver production-ready support for:
+- Multi-tenant SaaS via Organizations (KC ≥ 26)
+- IoT Device pairing via Device Authorization Grant (RFC 8628)
+- Standard Token Exchange (KC ≥ 26.2)
+- Automated client provisioning (Client Registration API)
+- Authorization Services (resource-level policy)
+- Client Policies/PKCE enforcement + production hardening (Helm + Docker)
+- Complete tests, docs, features checklist, and verification report
+
+GUIDELINES:
+- Work in a feature branch `feat/organizations-iot-token-exchange`.
+- Make incremental, meaningful commits. Keep scripts idempotent.
+- Do not leak secrets. Use placeholders in docs.
+- Everything must run locally with `docker-compose up -d`.
+
+-------------------------------------------------------------------------------
+TASKS (IMPLEMENT ALL)
+-------------------------------------------------------------------------------
+
+[1] Multi-Tenant via Organizations (KC ≥ 26)
+- Add a new realm variant: `realm/realm-organizations.json`.
+- Provide example Organizations (tenants): `music`, `workshop`, `wedding`.
+- Ensure access tokens include `organization` (name) and `org_id` (UUID/ID).
+- Add Fine-Grained Admin Permissions (FGAP) example exports for per-tenant delegated admin.
+- Write `docs/organizations.md`: when to choose single-realm+Organizations vs multi-realm; how tokens surface org claims.
+
+[2] Device Authorization Grant (IoT, Smart-Farming)
+- Add a public client `device-bootstrap` with Device Flow enabled.
+- Create end-to-end pairing walkthrough `curl_examples_device.md`.
+- Add a tiny verification page/server under `attached_assets/device-verify/` to show device pairing result (success/failure).
+
+[3] Standard Token Exchange (KC ≥ 26.2)
+- Enable Standard Token Exchange in docker-compose and Helm values.
+- Add example confidential clients `api-a` and `api-b`.
+- Create `curl_examples_token_exchange.md` demonstrating audience swap and claim differences.
+
+[4] Client Registration API (Auto-Provision)
+- Add `scripts/register-client.sh` to create SPA/backend/device clients via `/clients-registrations/default`.
+- Document Initial Access Token retrieval, security caveats, and idempotent re-runs in `docs/client-registration.md`.
+
+[5] Authorization Services (Resource Policy)
+- Provide minimal resources/scopes/policies for an example client (e.g., `event`, `ticket`, `order` with `read/manage`).
+- Export JSON under `client-configs/authorization/`.
+- Write `docs/authz-services.md`: when to use KC Authorization Services vs API-side checks; how to validate permissions (RPT).
+
+[6] Client Policies & Security Hardening
+- Export a Client Policy set enforcing PKCE, strict redirect URIs, signature alg constraints (RS256/EdDSA), refresh rotation.
+- Update README + Helm values for production (TLS ingress, SMTP, admin console lock-down, metrics, secrets management).
+- Provide `helm/values-prod.yaml` with sensible defaults.
+
+[7] Versioning, Release Notes, HA/Observability
+- Set minimum Keycloak version to 26.2+ in docs.
+- Add `docs/ha-multisite.md` for HA guidance, backup/restore, key rotation, logging/metrics.
+- Add/augment CHANGELOG.
+
+[8] Polish Existing Examples & Middleware
+- Ensure Express/FastAPI middleware validate JWKS, `aud`, `org_id`, and scopes.
+- Provide a tiny `validation-server.js` to validate tokens (local E2E).
+
+-------------------------------------------------------------------------------
+CREATE / MODIFY FILES (ADD THESE EXACT FILES WITH STARTER CONTENT)
+-------------------------------------------------------------------------------
+
+# 1) Realm variant with Organizations (starter skeleton; fill with valid KC export structure during implementation)
+Create file: realm/realm-organizations.json
+Contents:
+{
+  "_comment": "Starter skeleton: replace placeholders with a valid Keycloak realm export (KC >= 26) that enables Organizations. Keep realm name stable for docs/tests.",
+  "realm": "event-platform-organizations",
+  "enabled": true,
+  "attributes": {
+    "organizationsEnabled": "true"
+  },
+  "displayName": "Event Platform (Organizations)",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "internationalizationEnabled": true,
+  "supportedLocales": ["en"],
+  "defaultLocale": "en",
+  "clients": [
+    {
+      "clientId": "event-platform-web",
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      },
+      "redirectUris": ["http://localhost:3000/*"],
+      "webOrigins": ["+"]
+    },
+    {
+      "clientId": "event-platform-backend",
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "serviceAccountsEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "standardFlowEnabled": false,
+      "redirectUris": [],
+      "webOrigins": []
+    }
+  ],
+  "clientScopes": [
+    {
+      "name": "organization",
+      "protocol": "openid-connect",
+      "attributes": { "display.on.consent.screen": "true" },
+      "protocolMappers": [
+        {
+          "name": "org-name",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "organization",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "claim.name": "organization",
+            "jsonType.label": "String"
+          }
+        },
+        {
+          "name": "org-id",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "org_id",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "claim.name": "org_id",
+            "jsonType.label": "String"
+          }
+        }
+      ]
+    }
+  ],
+  "defaultDefaultClientScopes": ["organization", "profile", "email"],
+  "users": [],
+  "groups": [],
+  "roles": {
+    "realm": [
+      { "name": "TENANT_ADMIN" },
+      { "name": "TENANT_MEMBER" }
+    ]
+  }
+}
+
+# 2) Authorization Services example (starter)
+Create folder: client-configs/authorization/
+Create file: client-configs/authorization/resources.json
+[
+  { "name": "event",  "type": "urn:resource:event"  },
+  { "name": "ticket", "type": "urn:resource:ticket" },
+  { "name": "order",  "type": "urn:resource:order"  }
+]
+Create file: client-configs/authorization/scopes.json
+[
+  { "name": "event:read" }, { "name": "event:manage" },
+  { "name": "ticket:read" }, { "name": "ticket:manage" },
+  { "name": "order:read" }, { "name": "order:manage" }
+]
+Create file: client-configs/authorization/policies.json
+[
+  { "name": "policy-tenant-admin", "type": "role", "config": { "roles": ["TENANT_ADMIN"] } },
+  { "name": "policy-tenant-member", "type": "role", "config": { "roles": ["TENANT_MEMBER"] } }
+]
+Create file: client-configs/authorization/permissions.json
+[
+  { "name": "event-manage",  "type": "scope", "scopes": ["event:manage"],  "policies": ["policy-tenant-admin"] },
+  { "name": "event-read",    "type": "scope", "scopes": ["event:read"],    "policies": ["policy-tenant-admin","policy-tenant-member"] },
+  { "name": "ticket-manage", "type": "scope", "scopes": ["ticket:manage"], "policies": ["policy-tenant-admin"] },
+  { "name": "ticket-read",   "type": "scope", "scopes": ["ticket:read"],   "policies": ["policy-tenant-admin","policy-tenant-member"] },
+  { "name": "order-manage",  "type": "scope", "scopes": ["order:manage"],  "policies": ["policy-tenant-admin"] },
+  { "name": "order-read",    "type": "scope", "scopes": ["order:read"],    "policies": ["policy-tenant-admin","policy-tenant-member"] }
+]
+
+# 3) Client Registration script (starter)
+Create file: scripts/register-client.sh
+Contents:
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Usage:
+#   KEYCLOAK_BASE="http://localhost:8080" REALM="event-platform-organizations" \
+#   ADMIN_USER="admin" ADMIN_PASS="admin" \
+#   ./scripts/register-client.sh spa my-spa http://localhost:3000 http://localhost:3000/*
+
+TYPE="${1:-spa}"          # spa|backend|device
+CLIENT_ID="${2:-my-spa}"
+BASE_URL="${3:-http://localhost:3000}"
+REDIRECT_URI="${4:-http://localhost:3000/*}"
+
+: "${KEYCLOAK_BASE:?KEYCLOAK_BASE required}"
+: "${REALM:?REALM required}"
+: "${ADMIN_USER:?ADMIN_USER required}"
+: "${ADMIN_PASS:?ADMIN_PASS required}"
+
+# Get admin access token
+ADMIN_TOKEN="$(curl -sS -X POST "${KEYCLOAK_BASE}/realms/master/protocol/openid-connect/token" \
+  -d "grant_type=password" \
+  -d "client_id=admin-cli" \
+  -d "username=${ADMIN_USER}" \
+  -d "password=${ADMIN_PASS}" | jq -r '.access_token')"
+
+# Create Initial Access Token
+IAT="$(curl -sS -X POST "${KEYCLOAK_BASE}/admin/realms/${REALM}/clients-initial-access" \
+  -H "Authorization: Bearer ${ADMIN_TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d '{"count":1,"expiration":300}' | jq -r '.token')"
+
+REG_URL="${KEYCLOAK_BASE}/realms/${REALM}/clients-registrations/default"
+COMMON='{"protocol":"openid-connect"}'
+
+if [[ "${TYPE}" == "spa" ]]; then
+  PAYLOAD=$(jq -n --arg cid "${CLIENT_ID}" --arg burl "${BASE_URL}" --arg ruri "${REDIRECT_URI}" '
+    {
+      "clientId": $cid,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "attributes": {"pkce.code.challenge.method":"S256"},
+      "redirectUris": [$ruri],
+      "webOrigins": ["+"]
+    }')
+elif [[ "${TYPE}" == "backend" ]]; then
+  PAYLOAD=$(jq -n --arg cid "${CLIENT_ID}" '
+    {
+      "clientId": $cid,
+      "publicClient": false,
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false
+    }')
+elif [[ "${TYPE}" == "device" ]]; then
+  PAYLOAD=$(jq -n --arg cid "${CLIENT_ID}" '
+    {
+      "clientId": $cid,
+      "publicClient": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "attributes": {"oauth2.device.authorization.grant.enabled":"true"}
+    }')
+else
+  echo "Unknown TYPE: ${TYPE}" >&2; exit 1
+fi
+
+echo "Registering client ${CLIENT_ID} (${TYPE}) ..."
+curl -sS -X POST "${REG_URL}" \
+  -H "Authorization: Bearer ${IAT}" \
+  -H "Content-Type: application/json" \
+  -d "$(jq -n --argjson x "${PAYLOAD}" --argjson c "${COMMON}" '$x + $c')" | jq '.'
+echo "Done."
+
+# 4) Device Flow walkthrough (starter)
+Create file: curl_examples_device.md
+Contents:
+# Device Authorization Grant (IoT) – cURL Walkthrough
+
+> Prereqs: realm imported, client `device-bootstrap` exists with Device Flow enabled.
+
+## 1) Obtain Device Code
+```bash
+KC_BASE=http://localhost:8080
+REALM=event-platform-organizations
+CLIENT_ID=device-bootstrap
+
+curl -sS -X POST "$KC_BASE/realms/$REALM/protocol/openid-connect/device/auth" \
+  -d "client_id=$CLIENT_ID" \
+  -d "scope=openid organization" | tee .device_resp.json
+jq . .device_resp.json
+````
+
+Output contains `device_code`, `user_code`, and `verification_uri_complete`.
+
+## 2) User Verification (separate browser)
+
+Open the `verification_uri_complete` and sign in as an operator/admin. Approve the device.
+
+## 3) Poll for Token
+
+```bash
+DEVICE_CODE=$(jq -r '.device_code' .device_resp.json)
+curl -sS -X POST "$KC_BASE/realms/$REALM/protocol/openid-connect/token" \
+  -d "grant_type=urn:ietf:params:oauth:grant-type:device_code" \
+  -d "device_code=$DEVICE_CODE" \
+  -d "client_id=$CLIENT_ID" | tee .device_token.json
+jq . .device_token.json
+```
+
+## 4) Call Protected API with Access Token
+
+```bash
+ACCESS_TOKEN=$(jq -r '.access_token' .device_token.json)
+curl -sS http://localhost:4000/protected -H "Authorization: Bearer $ACCESS_TOKEN"
+```
+
+# 5) Token Exchange walkthrough (starter)
+
+Create file: curl\_examples\_token\_exchange.md
+Contents:
+
+# Standard Token Exchange – cURL Walkthrough (KC ≥ 26.2)
+
+## Setup
+
+* Two confidential clients: `api-a` (source) with service account; `api-b` (target audience).
+
+## 1) Get token from api-a (client\_credentials)
+
+```bash
+KC_BASE=http://localhost:8080
+REALM=event-platform-organizations
+
+curl -sS -X POST "$KC_BASE/realms/$REALM/protocol/openid-connect/token" \
+  -d "grant_type=client_credentials" \
+  -d "client_id=api-a" \
+  -d "client_secret=REPLACE_ME" | tee .api_a_token.json
+ACCESS_TOKEN=$(jq -r '.access_token' .api_a_token.json)
+```
+
+## 2) Exchange token for audience api-b
+
+```bash
+curl -sS -X POST "$KC_BASE/realms/$REALM/protocol/openid-connect/token" \
+  -d "grant_type=urn:ietf:params:oauth:grant-type:token-exchange" \
+  -d "client_id=api-a" \
+  -d "client_secret=REPLACE_ME" \
+  -d "subject_token=$ACCESS_TOKEN" \
+  -d "requested_token_type=urn:ietf:params:oauth:token-type:access_token" \
+  -d "audience=api-b" | tee .exchanged.json
+jq . .exchanged.json
+```
+
+# 6) Tiny token validation server (starter)
+
+Create file: validation-server.js
+Contents:
+import http from "http";
+import jwt from "jsonwebtoken";
+import jwksClient from "jwks-rsa";
+import fetch from "node-fetch";
+
+const ISSUER = process.env.ISSUER || "[http://localhost:8080/realms/event-platform-organizations](http://localhost:8080/realms/event-platform-organizations)";
+const AUD\_REQUIRED = process.env.AUD\_REQUIRED || "event-platform-backend";
+
+const client = jwksClient({
+jwksUri: `${ISSUER}/protocol/openid-connect/certs`
+});
+
+function getKey(header, cb) {
+client.getSigningKey(header.kid, (err, key) => {
+if (err) return cb(err);
+const signingKey = key.getPublicKey();
+cb(null, signingKey);
+});
+}
+
+const server = http.createServer(async (req, res) => {
+if (req.url === "/protected") {
+const auth = req.headers.authorization || "";
+const token = auth.replace(/^Bearer\s+/i, "");
+jwt.verify(token, getKey, { issuer: ISSUER, algorithms: \["RS256","RS512","EdDSA"] }, (err, decoded) => {
+if (err) {
+res.writeHead(401, {"Content-Type":"application/json"});
+return res.end(JSON.stringify({error: err.message}));
+}
+if (decoded.aud !== AUD\_REQUIRED && !(Array.isArray(decoded.aud) && decoded.aud.includes(AUD\_REQUIRED))) {
+res.writeHead(403, {"Content-Type":"application/json"});
+return res.end(JSON.stringify({error:"invalid audience", aud: decoded.aud}));
+}
+res.writeHead(200, {"Content-Type":"application/json"});
+res.end(JSON.stringify({
+ok: true,
+sub: decoded.sub,
+org: decoded.organization || null,
+org\_id: decoded.org\_id || null,
+scope: decoded.scope || null,
+aud: decoded.aud
+}));
+});
+} else {
+res.writeHead(200, {"Content-Type":"text/plain"});
+res.end("Validation server up. GET /protected with Bearer token.");
+}
+});
+
+server.listen(4000, () => console.log("Validation server on [http://localhost:4000](http://localhost:4000)"));
+
+# 7) Helm production values (starter)
+
+Create file: helm/values-prod.yaml
+Contents:
+keycloak:
+image:
+tag: "26.2"
+extraEnv:
+\- name: KC\_METRICS\_ENABLED
+value: "true"
+\- name: KC\_PROXY
+value: "edge"
+\- name: KC\_FEATURES
+value: "token-exchange"   # ensure enabled if chart requires
+command:
+\- start
+\- --optimized
+ingress:
+enabled: true
+className: nginx
+hosts:
+\- host: auth.yourdomain.com
+paths:
+\- path: /
+pathType: Prefix
+tls:
+\- hosts: \[auth.yourdomain.com]
+secretName: keycloak-tls
+resources:
+requests: { cpu: "250m", memory: "512Mi" }
+limits:   { cpu: "1",    memory: "2Gi" }
+
+# 8) Docs (starter stubs)
+
+Create file: docs/organizations.md
+Contents:
+
+# Organizations (KC ≥ 26)
+
+* When to use single-realm + Organizations vs multi-realm
+* How to create Organizations (music, workshop, wedding) and add members
+* How to expose `organization` and `org_id` in tokens (mappers, client scope)
+* FGAP: delegated admin per tenant (export JSON + steps)
+* API validation tips (check org claims and audience)
+
+Create file: docs/token-exchange.md
+Contents:
+
+# Standard Token Exchange (KC ≥ 26.2)
+
+* Enable feature, required env/flags
+* Example clients: api-a, api-b
+* Flow: client\_credentials -> token exchange -> validate `aud`
+* Security considerations
+
+Create file: docs/device-flow\.md
+Contents:
+
+# Device Authorization Grant (IoT)
+
+* Enable on client `device-bootstrap`
+* Pairing steps (device\_code, user\_code)
+* Verification UI endpoint
+* Scopes design for devices
+
+Create file: docs/authz-services.md
+Contents:
+
+# Authorization Services (Resource-Level)
+
+* When to use vs API-side role checks
+* Import resources/scopes/policies
+* Requesting RPT and evaluating permissions
+* Example allow/deny scenarios
+
+Create file: docs/client-registration.md
+Contents:
+
+# Client Registration API
+
+* Obtain Initial Access Token
+* Create SPA/backend/device clients (`scripts/register-client.sh`)
+* Idempotency & security caveats
+
+Create file: docs/ha-multisite.md
+Contents:
+
+# HA / Multisite / Ops
+
+* Minimum KC version 26.2+
+* Backups, key rotation, metrics & logging
+* Ingress/TLS, SMTP, admin console lock-down
+* Disaster recovery checklist
+
+# 9) Features checklist (starter)
+
+Create file: FEATURES\_CHECKLIST.md
+Contents:
+
+| Feature                    | Status | Files/Paths                                             | How to Test (command/URL)                 | Notes |
+| -------------------------- | ------ | ------------------------------------------------------- | ----------------------------------------- | ----- |
+| Organizations              | ❌      | realm/realm-organizations.json, docs/organizations.md   | Import realm; login; inspect token claims |       |
+| FGAP (delegated admin)     | ❌      | docs/organizations.md (exports)                         | Assign tenant admin; verify limited scope |       |
+| Device Authorization Grant | ❌      | curl\_examples\_device.md                               | Run cURL flow; verify access token        |       |
+| Standard Token Exchange    | ❌      | curl\_examples\_token\_exchange.md                      | Perform exchange; verify `aud`            |       |
+| Client Registration API    | ❌      | scripts/register-client.sh, docs/client-registration.md | Create SPA client; do PKCE login          |       |
+| Authorization Services     | ❌      | client-configs/authorization/\*, docs/authz-services.md | Request permissions; allow/deny checks    |       |
+| Client Policies + PKCE     | ❌      | (exported via KC admin), README                         | Create non-compliant client -> rejected   |       |
+| Prod Helm values/TLS/SMTP  | ❌      | helm/values-prod.yaml, README                           | Deploy to K8s; verify ingress/metrics     |       |
+
+(Flip ❌ → ✅ as you implement & verify.)
+
+# 10) Verification report (create/append)
+
+Create/Update file: verification-report.md
+Contents:
+
+# Verification Report
+
+* Environment
+* Commands executed (compose up, imports, cURL runs)
+* Results (token snippets, decoded claims)
+* Issues found & fixes
+* Known limitations
+* Next steps
+
+---
+
+## COMPOSE / HELM & CONFIG CHANGES (DO THESE)
+
+* Enable Token Exchange (env/feature flag) where needed.
+* Add notes in README: minimum Keycloak version 26.2+.
+* Ensure docker-compose exports required ports; keep idempotent import scripts.
+* Keep existing examples working; extend rather than replace.
+
+---
+
+## TEST PLAN (RUN AND LOG OUTPUTS TO verification-report.md)
+
+1. `docker-compose down -v && docker-compose up -d` → wait healthy.
+2. Import three modes:
+
+   * Existing single-tenant (if present)
+   * Existing multi-realm (if present)
+   * New Organizations (realm-organizations.json)
+3. PKCE: run existing `curl_examples.md` → success.
+4. Device Flow: run `curl_examples_device.md` → get device token → call `validation-server.js /protected`.
+5. Token Exchange: run `curl_examples_token_exchange.md` → verify `aud` change.
+6. Client Registration: run `scripts/register-client.sh spa new-spa ...` → perform PKCE login with new client.
+7. Authorization Services: request permissions; demonstrate allow/deny.
+8. Idempotency: `docker-compose down -v && up -d` then re-run imports/flows.
+9. Update `FEATURES_CHECKLIST.md` to ✅ for each passing feature.
+
+---
+
+## ACCEPTANCE CRITERIA
+
+* Repo runs with compose; realm-organizations imports cleanly.
+* Organizations present; tokens include `organization` & `org_id`.
+* Device Flow pairing works end-to-end.
+* Standard Token Exchange enabled and demonstrated.
+* Client Registration script creates clients successfully.
+* Authorization Services JSON imported; allow/deny verified.
+* Client Policies exported and enforced (PKCE, redirect URI, alg).
+* `helm/values-prod.yaml` present with documented toggles; README updated.
+* `FEATURES_CHECKLIST.md` populated; `verification-report.md` contains logs/results.
+* CHANGELOG updated with this feature release.
+
+---
+
+## QUALITY BAR
+
+* Shell scripts: `set -euo pipefail`, executable bit set.
+* Meaningful commits; final CHANGELOG section summarizing changes.
+* Fix any broken paths/anchors; resolve ESM/CommonJS issues if any.
+* Keep examples runnable offline against the compose stack.
+
+```
+::contentReference[oaicite:0]{index=0}
+```

@@ -1,0 +1,8 @@
+[
+  { "name": "event-manage",  "type": "scope", "scopes": ["event:manage"],  "policies": ["policy-tenant-admin"] },
+  { "name": "event-read",    "type": "scope", "scopes": ["event:read"],    "policies": ["policy-tenant-admin","policy-tenant-member"] },
+  { "name": "ticket-manage", "type": "scope", "scopes": ["ticket:manage"], "policies": ["policy-tenant-admin"] },
+  { "name": "ticket-read",   "type": "scope", "scopes": ["ticket:read"],   "policies": ["policy-tenant-admin","policy-tenant-member"] },
+  { "name": "order-manage",  "type": "scope", "scopes": ["order:manage"],  "policies": ["policy-tenant-admin"] },
+  { "name": "order-read",    "type": "scope", "scopes": ["order:read"],    "policies": ["policy-tenant-admin","policy-tenant-member"] }
+]

@@ -1,0 +1,232 @@
+{
+  "realm": "event-platform-organizations",
+  "enabled": true,
+  "displayName": "Event Platform (Organizations)",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "internationalizationEnabled": true,
+  "supportedLocales": ["en"],
+  "defaultLocale": "en",
+  "attributes": {
+    "organizationsEnabled": "true"
+  },
+  "accessTokenLifespan": 600,
+  "accessTokenLifespanForImplicitFlow": 600,
+  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionMaxLifespan": 36000,
+  "refreshTokenMaxReuse": 0,
+  "roles": {
+    "realm": [
+      {
+        "name": "TENANT_ADMIN",
+        "description": "Administrator role for tenant organizations"
+      },
+      {
+        "name": "TENANT_MEMBER", 
+        "description": "Member role for tenant organizations"
+      },
+      {
+        "name": "owner",
+        "description": "Full access to all resources"
+      },
+      {
+        "name": "operator",
+        "description": "Operational access to resources"
+      },
+      {
+        "name": "admin",
+        "description": "Administrative access (MFA required)"
+      }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "event-platform-web",
+      "name": "Event Platform Web Client",
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "fullScopeAllowed": false,
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:3000/logout",
+        "backchannel.logout.session.required": "true"
+      },
+      "redirectUris": ["http://localhost:3000/*"],
+      "webOrigins": ["+"],
+      "defaultClientScopes": ["openid", "profile", "email", "organization"],
+      "optionalClientScopes": ["offline_access"]
+    },
+    {
+      "clientId": "event-platform-backend",
+      "name": "Event Platform Backend API",
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "serviceAccountsEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "standardFlowEnabled": false,
+      "fullScopeAllowed": false,
+      "authorizationServicesEnabled": true,
+      "secret": "changeme-backend-client-secret",
+      "attributes": {
+        "access.token.lifespan": "300"
+      },
+      "redirectUris": [],
+      "webOrigins": [],
+      "defaultClientScopes": ["organization"],
+      "serviceAccountsEnabled": true
+    },
+    {
+      "clientId": "device-bootstrap",
+      "name": "IoT Device Bootstrap Client",
+      "protocol": "openid-connect", 
+      "publicClient": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "fullScopeAllowed": false,
+      "attributes": {
+        "oauth2.device.authorization.grant.enabled": "true"
+      },
+      "redirectUris": [],
+      "webOrigins": [],
+      "defaultClientScopes": ["openid", "organization"]
+    },
+    {
+      "clientId": "api-a",
+      "name": "API Service A (Token Exchange Source)",
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "serviceAccountsEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "standardFlowEnabled": false,
+      "secret": "changeme-api-a-secret",
+      "attributes": {
+        "token.exchange.grant.enabled": "true"
+      },
+      "defaultClientScopes": ["organization"]
+    },
+    {
+      "clientId": "api-b", 
+      "name": "API Service B (Token Exchange Target)",
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "serviceAccountsEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "standardFlowEnabled": false,
+      "secret": "changeme-api-b-secret",
+      "defaultClientScopes": ["organization"]
+    }
+  ],
+  "clientScopes": [
+    {
+      "name": "organization",
+      "protocol": "openid-connect",
+      "attributes": {
+        "display.on.consent.screen": "true",
+        "include.in.token.scope": "true"
+      },
+      "protocolMappers": [
+        {
+          "name": "organization-membership",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-organization-membership-mapper",
+          "consentRequired": false,
+          "config": {
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "claim.name": "organization"
+          }
+        }
+      ]
+    }
+  ],
+  "defaultDefaultClientScopes": ["openid", "profile", "email"],
+  "users": [
+    {
+      "username": "admin-music",
+      "enabled": true,
+      "email": "admin@music-events.com",
+      "firstName": "Music",
+      "lastName": "Admin",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "admin-music-password",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["TENANT_ADMIN", "admin"],
+      "attributes": {
+        "organization": ["music-events"],
+        "org_id": ["org-music-123"]
+      }
+    },
+    {
+      "username": "member-workshop",
+      "enabled": true,
+      "email": "member@workshop-events.com", 
+      "firstName": "Workshop",
+      "lastName": "Member",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "member-workshop-password",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["TENANT_MEMBER"],
+      "attributes": {
+        "organization": ["workshop-events"],
+        "org_id": ["org-workshop-456"]
+      }
+    },
+    {
+      "username": "owner-wedding",
+      "enabled": true,
+      "email": "owner@wedding-events.com",
+      "firstName": "Wedding", 
+      "lastName": "Owner",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "owner-wedding-password",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["TENANT_ADMIN", "owner"],
+      "attributes": {
+        "organization": ["wedding-events"],
+        "org_id": ["org-wedding-789"]
+      }
+    }
+  ],
+  "groups": [
+    {
+      "name": "music-events",
+      "attributes": {
+        "organization": ["music-events"],
+        "org_id": ["org-music-123"]
+      }
+    },
+    {
+      "name": "workshop-events", 
+      "attributes": {
+        "organization": ["workshop-events"],
+        "org_id": ["org-workshop-456"]
+      }
+    },
+    {
+      "name": "wedding-events",
+      "attributes": {
+        "organization": ["wedding-events"],
+        "org_id": ["org-wedding-789"]
+      }
+    }
+  ]
+}

@@ -1,0 +1,287 @@
+# Production Helm Values for Keycloak Template
+# Usage: helm install keycloak ./helm -f values-prod.yaml
+
+global:
+  storageClass: "gp2"  # AWS EBS, adjust for your cloud provider
+
+replicaCount: 2  # HA deployment
+
+image:
+  repository: quay.io/keycloak/keycloak
+  tag: "26.2.0"
+  pullPolicy: IfNotPresent
+
+# Keycloak configuration
+keycloak:
+  # Production command
+  command: ["start", "--optimized"]
+  
+  # Admin user configuration
+  admin:
+    username: admin
+    existingSecret: keycloak-admin-secret
+    existingSecretKey: password
+  
+  # Production environment variables
+  extraEnv:
+    # Hostname configuration
+    - name: KC_HOSTNAME
+      value: "auth.yourdomain.com"
+    - name: KC_HOSTNAME_STRICT
+      value: "true"
+    - name: KC_HOSTNAME_STRICT_BACKCHANNEL
+      value: "true"
+    
+    # TLS configuration
+    - name: KC_HTTPS_CERTIFICATE_FILE
+      value: "/opt/keycloak/conf/tls.crt"
+    - name: KC_HTTPS_CERTIFICATE_KEY_FILE
+      value: "/opt/keycloak/conf/tls.key"
+    
+    # Database configuration
+    - name: KC_DB
+      value: "postgres"
+    - name: KC_DB_URL_HOST
+      value: "keycloak-postgresql"
+    - name: KC_DB_URL_DATABASE
+      value: "keycloak"
+    - name: KC_DB_USERNAME
+      valueFrom:
+        secretKeyRef:
+          name: keycloak-postgresql
+          key: username
+    - name: KC_DB_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: keycloak-postgresql
+          key: password
+    
+    # Feature configuration
+    - name: KC_FEATURES
+      value: "organizations,token-exchange,client-policies,device-flow,authorization"
+    - name: KC_ORGANIZATIONS_ENABLED
+      value: "true"
+    - name: KC_TOKEN_EXCHANGE_ENABLED
+      value: "true"
+    
+    # Security configuration
+    - name: KC_HEALTH_ENABLED
+      value: "true"
+    - name: KC_METRICS_ENABLED
+      value: "true"
+    - name: KC_LOG_LEVEL
+      value: "INFO"
+    - name: KC_LOG_CONSOLE_OUTPUT
+      value: "json"
+    
+    # SMTP configuration
+    - name: KC_SMTP_HOST
+      valueFrom:
+        secretKeyRef:
+          name: keycloak-smtp
+          key: host
+    - name: KC_SMTP_PORT
+      valueFrom:
+        secretKeyRef:
+          name: keycloak-smtp
+          key: port
+    - name: KC_SMTP_FROM
+      valueFrom:
+        secretKeyRef:
+          name: keycloak-smtp
+          key: from
+    - name: KC_SMTP_USER
+      valueFrom:
+        secretKeyRef:
+          name: keycloak-smtp
+          key: username
+    - name: KC_SMTP_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: keycloak-smtp
+          key: password
+    - name: KC_SMTP_SSL
+      value: "true"
+    - name: KC_SMTP_STARTTLS
+      value: "true"
+
+  # Resource limits
+  resources:
+    limits:
+      cpu: "2"
+      memory: "2Gi"
+    requests:
+      cpu: "1"
+      memory: "1Gi"
+
+  # Health checks
+  livenessProbe:
+    httpGet:
+      path: /health/live
+      port: 8080
+      scheme: HTTPS
+    initialDelaySeconds: 120
+    periodSeconds: 30
+    timeoutSeconds: 10
+    failureThreshold: 5
+
+  readinessProbe:
+    httpGet:
+      path: /health/ready
+      port: 8080
+      scheme: HTTPS
+    initialDelaySeconds: 60
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+
+# PostgreSQL configuration
+postgresql:
+  enabled: true
+  
+  # Production settings
+  architecture: replication
+  auth:
+    postgresPassword: "changeme-postgres-admin"
+    username: "keycloak"
+    password: "changeme-keycloak-db"
+    database: "keycloak"
+    existingSecret: "keycloak-postgresql"
+  
+  # Primary configuration
+  primary:
+    persistence:
+      enabled: true
+      storageClass: "gp2"
+      size: "20Gi"
+    resources:
+      limits:
+        cpu: "1"
+        memory: "1Gi"
+      requests:
+        cpu: "500m"
+        memory: "512Mi"
+    
+    # Backup configuration
+    backup:
+      enabled: true
+      schedule: "0 2 * * *"  # Daily at 2 AM
+      retention: "7d"
+  
+  # Read replica configuration
+  readReplicas:
+    replicaCount: 1
+    persistence:
+      enabled: true
+      storageClass: "gp2"
+      size: "20Gi"
+    resources:
+      limits:
+        cpu: "500m"
+        memory: "512Mi"
+      requests:
+        cpu: "250m"
+        memory: "256Mi"
+
+# Ingress configuration
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-buffer-size: "8k"
+    nginx.ingress.kubernetes.io/client-max-body-size: "1m"
+  
+  hosts:
+    - host: auth.yourdomain.com
+      paths:
+        - path: /
+          pathType: Prefix
+  
+  tls:
+    - secretName: keycloak-tls
+      hosts:
+        - auth.yourdomain.com
+
+# Service configuration
+service:
+  type: ClusterIP
+  ports:
+    - port: 8080
+      targetPort: 8080
+      name: http
+    - port: 8443
+      targetPort: 8443
+      name: https
+
+# ServiceMonitor for Prometheus
+serviceMonitor:
+  enabled: true
+  namespace: monitoring
+  labels:
+    release: prometheus
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 30s
+      scrapeTimeout: 10s
+
+# Network policies
+networkPolicy:
+  enabled: true
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: ingress-nginx
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: monitoring
+
+# Pod security
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: false  # Keycloak needs write access to /tmp
+
+# Horizontal Pod Autoscaler
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+# Pod Disruption Budget
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+# Secrets (create these manually or via external-secrets)
+secrets:
+  # kubectl create secret generic keycloak-admin-secret --from-literal=password='your-secure-admin-password'
+  # kubectl create secret generic keycloak-postgresql --from-literal=username='keycloak' --from-literal=password='your-secure-db-password'
+  # kubectl create secret generic keycloak-smtp --from-literal=host='smtp.gmail.com' --from-literal=port='587' --from-literal=from='noreply@yourdomain.com' --from-literal=username='your-smtp-user' --from-literal=password='your-smtp-password'
+  
+# Backup configuration
+backup:
+  enabled: true
+  schedule: "0 3 * * *"  # Daily at 3 AM
+  retention: "30d"
+  storage:
+    storageClass: "gp2"
+    size: "10Gi"

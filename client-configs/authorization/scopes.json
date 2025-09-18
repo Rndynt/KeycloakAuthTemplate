@@ -1,0 +1,5 @@
+[
+  { "name": "event:read" }, { "name": "event:manage" },
+  { "name": "ticket:read" }, { "name": "ticket:manage" },
+  { "name": "order:read" }, { "name": "order:manage" }
+]
